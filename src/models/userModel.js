@@ -1,8 +1,9 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../startup/db.js");
+const sequelize = require("../startup/db");
 const Joi = require("joi");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const likedGames = require("./likedGames");
 
 const User = sequelize.define(
   "User",
@@ -19,6 +20,10 @@ const User = sequelize.define(
     password: {
       type: DataTypes.STRING,
       allowNull: false,
+    },
+    isAdmin: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
   },
   {
@@ -54,5 +59,16 @@ function validateLogin(user) {
   });
   return schema.validate(user);
 }
+likedGames.belongsTo(User, {
+  foreignKey: "userId", // likedGames tablosunda userId adlı bir dış anahtar olacak
+  as: "user", // User modeliyle olan ilişkiyi tanımladık
+});
+
+// // User modelinde likedGames'e bağlı çoktan çoğa ilişkiyi ekliyoruz
+// User.belongsToMany(likedGames, {
+//   through: "UserLikedGames", // İlişkileri tutacak üçüncü tablo adı
+//   foreignKey: "userId",
+//   as: "likedGames", // Kullanıcıya ait beğenilen oyunları temsil ediyor
+// });
 
 module.exports = { User, validateRegister, validateLogin };

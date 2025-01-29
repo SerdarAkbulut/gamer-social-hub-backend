@@ -1,20 +1,17 @@
 const { Sequelize } = require("sequelize");
 const dotenv = require("dotenv");
 
-// dotenv paketini yükle ve yapılandır
 dotenv.config();
 
-// PostgreSQL bağlantısı
 const sequelize = new Sequelize(
-  process.env.DB_NAME, // Veritabanı adı
-  process.env.DB_USER, // Kullanıcı adı
-  process.env.DB_PASSWORD, // Şifre
+  process.env.DB_NAME, // .env'den veritabanı adı
+  process.env.DB_USER, // .env'den kullanıcı adı
+  process.env.DB_PASSWORD, // .env'den şifre
   {
-    host: "localhost",
-    port: 5432, // Port
-    dialect: "postgres", // Dialect (PostgreSQL)
-    logging: false, // SQL sorgularını loglama (isteğe bağlı)
+    host: process.env.DB_HOST || "localhost",
+    dialect: "postgres", // PostgreSQL kullanıyorsanız
+    logging: false,
   }
 );
 
-module.exports = sequelize;
+module.exports = sequelize; // `{ sequelize }` yerine `sequelize` döndürülmeli

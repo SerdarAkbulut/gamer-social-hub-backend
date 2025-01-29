@@ -6,7 +6,7 @@ const { Op } = require("sequelize");
 
 const router = Router();
 
-router.post("/create", async (req, res) => {
+router.post("/register", async (req, res) => {
   // Kullanıcı verilerini doğrulama
   const { error } = validateRegister(req.body);
   if (error) {
@@ -32,6 +32,23 @@ router.post("/create", async (req, res) => {
 
   // Kullanıcıyı veritabanına kaydetme
   await user.save();
+});
+
+router.get("/user", async (req, res) => {
+  // Kullanıcıyı ID ile arayalım (GET isteği olduğu için params ya da query kullanabiliriz)
+  const { id } = req.query; // Burada id'yi query parametresi olarak alıyoruz
+
+  let user = await User.findOne({
+    where: {
+      id: id, // Op kullanmaya gerek yok çünkü sadece basit bir eşleşme yapıyoruz
+    },
+  });
+
+  if (!user) {
+    return res.status(404).send("Kullanıcı Bulunamadı");
+  }
+
+  return res.status(200).json(user); // Kullanıcıyı başarılı bir şekilde bulduysak gönderelim
 });
 
 module.exports = router;
