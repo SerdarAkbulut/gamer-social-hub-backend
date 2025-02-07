@@ -15,7 +15,6 @@ require("./src/startup/routers")(app);
 
 const PORT = process.env.PORT || 3000;
 
-// **🚀 Veritabanı Bağlantısı ve Server Başlatma**
 app.listen(PORT, async () => {
   try {
     await sequelize.authenticate(); // Veritabanı bağlantısını doğrula
