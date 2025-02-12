@@ -66,8 +66,8 @@ const fetchGames = async (offset = 0) => {
     const currentTime = Math.floor(Date.now() / 1000);
 
     const requestBody = `
-      fields name, genres.name, platforms.name, first_release_date, cover.image_id, themes.name; 
-      sort total_rating_count desc;
+      fields name, genres.name, platforms.name, first_release_date, cover.image_id, themes.name,rating; 
+      sort rating_count desc;
       where first_release_date < ${currentTime} 
       & platforms = (6, 48, 167, 9, 49, 169, 12)
       & category = (0)
@@ -106,18 +106,18 @@ const fetchGames = async (offset = 0) => {
   }
 };
 
-const searchGames = async (search) => {
+const searchGames = async (search, offset) => {
   try {
     const accessToken = await getOAuthToken();
     if (!accessToken) {
       throw new Error("Access token alınamadı!");
     }
 
-    const requestBody = `
-      fields name, genres.name, first_release_dates, cover.url; 
-      search "${search}";
-      limit 24;
-    `;
+    const requestBody = `fields name, genres.name, first_release_date, cover.url,cover.image_id;
+    search "${search}";
+    limit 24;
+   offset ${offset}; 
+   where category=0;`;
 
     const response = await axios.post(
       "https://api.igdb.com/v4/games",
@@ -130,12 +130,16 @@ const searchGames = async (search) => {
         },
       }
     );
-
-    let games = response.data;
-
+    let games = response.data.map((game) => ({
+      ...game,
+      cover_url: game.cover
+        ? `https://images.igdb.com/igdb/image/upload/t_1080p/${game.cover.image_id}.jpg`
+        : "default-cover.jpg", // Varsayılan kapak resmi
+    }));
     return games;
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Error Response Data:", error.response?.data);
+    console.error("Error Message:", error.message);
     return [];
   }
 };
@@ -241,15 +245,16 @@ router.get("/games", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-debugger;
 router.get("/search", async (req, res) => {
   try {
-    const searchQuery = "witcher";
+    const searchQuery = req.query.q;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * 24;
     if (!searchQuery) {
       return res.status(400).json({ error: "Arama terimi belirtilmelidir!" });
     }
 
-    const games = await searchGames(searchQuery);
+    const games = await searchGames(searchQuery, offset);
     return res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -257,7 +262,8 @@ router.get("/search", async (req, res) => {
 });
 router.get("/gameDetails", async (req, res) => {
   try {
-    const games = await gameDetails(15456);
+    const gameId = req.query.id;
+    const games = await gameDetails(gameId);
     res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
