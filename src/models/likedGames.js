@@ -7,6 +7,18 @@ const likedGames = sequelize.define("likedGames", {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  gameName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  gameImage: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  isLiked: {
+    type: DataTypes.BOOLEAN,
+    allowNull: true,
+  },
 });
 
 module.exports = likedGames;
