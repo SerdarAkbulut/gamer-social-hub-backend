@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const { date } = require("joi");
 const likedGames = require("../models/likedGames");
 const auth = require("../middleware/auth");
+const favoritedGames = require("../models/favoritedGames");
 
 dotenv.config();
 const router = Router();
@@ -37,6 +38,14 @@ const getUserLikedGames = async (userId) => {
       userId: userId,
     },
     attributes: ["gameId", "isLiked"],
+  });
+};
+const getUserFavoritedGames = async (userId) => {
+  return await favoritedGames.findAll({
+    where: {
+      userId: userId,
+    },
+    attributes: ["gameId", "isFavorited"],
   });
 };
 
@@ -186,7 +195,7 @@ const searchGames = async (search, offset) => {
     return [];
   }
 };
-const upcomingGames = async (offset) => {
+const upcomingGames = async (offset, userId) => {
   try {
     const access_token = await getOAuthToken();
     const currentTime = Math.floor(Date.now() / 1000);
@@ -218,6 +227,17 @@ const upcomingGames = async (offset) => {
         ? `https://images.igdb.com/igdb/image/upload/t_1080p/${game.cover.image_id}.jpg`
         : "default-cover.jpg",
     }));
+    const likedGames = userId ? await getUserLikedGames(userId) : [];
+    const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
+    games = games.map((game) => {
+      const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+      const favoritedGame = favoritedGames.find((fg) => fv.gamId === game.id);
+      return {
+        ...game,
+        isLiked: likedGame ? likedGame.isLiked : null,
+        isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
+      };
+    });
     return games;
   } catch (error) {
     console.error("Error:", error.message);
@@ -376,11 +396,12 @@ router.get("/newestGames", auth, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-router.get("/upcomingGames", async (req, res) => {
+router.get("/upcomingGames", auth, async (req, res) => {
   try {
+    const user = req.user;
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * 24;
-    const games = await upcomingGames(offset);
+    const games = await upcomingGames(offset, user.id);
     res.json(games);
   } catch (error) {}
 });

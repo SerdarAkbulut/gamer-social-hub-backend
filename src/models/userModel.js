@@ -4,6 +4,7 @@ const Joi = require("joi");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const likedGames = require("./likedGames");
+const favoritedGames = require("./favoritedGames");
 
 const User = sequelize.define(
   "User",
@@ -63,12 +64,9 @@ likedGames.belongsTo(User, {
   foreignKey: "userId", // likedGames tablosunda userId adlı bir dış anahtar olacak
   as: "user", // User modeliyle olan ilişkiyi tanımladık
 });
-
-// // User modelinde likedGames'e bağlı çoktan çoğa ilişkiyi ekliyoruz
-// User.belongsToMany(likedGames, {
-//   through: "UserLikedGames", // İlişkileri tutacak üçüncü tablo adı
-//   foreignKey: "userId",
-//   as: "likedGames", // Kullanıcıya ait beğenilen oyunları temsil ediyor
-// });
+favoritedGames.belongsTo(User, {
+  foreignKey: "userId", // likedGames tablosunda userId adlı bir dış anahtar olacak
+  as: "user", // User modeliyle olan ilişkiyi tanımladık
+});
 
 module.exports = { User, validateRegister, validateLogin };

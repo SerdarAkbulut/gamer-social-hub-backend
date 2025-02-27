@@ -3,7 +3,7 @@ const { Router } = require("express");
 const bcrypt = require("bcryptjs");
 const router = Router();
 const auth = require("../middleware/auth");
-const LikedGames = require("../models/likedGames"); // Model büyük harfle başlamalı
+const LikedGames = require("../models/likedGames");
 const { where } = require("sequelize");
 
 router.post("/gameLike", auth, async (req, res) => {
@@ -53,7 +53,7 @@ router.post("/gameLike", auth, async (req, res) => {
 
     await newLikedGame.save();
 
-    return res.status(201).json({
+    return res.status(200).json({
       message: "Oyun başarıyla beğenildi!",
       likedGame: newLikedGame,
     });
