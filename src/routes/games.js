@@ -94,13 +94,14 @@ const fetchReleaseDates = async (offset = 0, userId) => {
 
     // Kullanıcının beğendiği oyunları çek
     const likedGames = userId ? await getUserLikedGames(userId) : [];
-
-    // Beğeni bilgilerini eşle
+    const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
     games = games.map((game) => {
       const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+      const favoritedGame = favoritedGames.find((fv) => fv.gameId === game.id);
       return {
         ...game,
-        isLiked: likedGame ? likedGame.isLiked : null, // Kullanıcı beğenmemişse null bırak
+        isLiked: likedGame ? likedGame.isLiked : null,
+        isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
       };
     });
 
@@ -231,7 +232,7 @@ const upcomingGames = async (offset, userId) => {
     const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
     games = games.map((game) => {
       const likedGame = likedGames.find((lg) => lg.gameId === game.id);
-      const favoritedGame = favoritedGames.find((fg) => fv.gamId === game.id);
+      const favoritedGame = favoritedGames.find((fv) => fv.gameId === game.id);
       return {
         ...game,
         isLiked: likedGame ? likedGame.isLiked : null,

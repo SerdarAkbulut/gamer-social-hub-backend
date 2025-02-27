@@ -7,39 +7,47 @@ const FavoritedGames = require("../models/favoritedGames");
 const { where } = require("sequelize");
 const favoritedGames = require("../models/favoritedGames");
 
-router.post("/gameFavorite", auth, async (req, res) => {
+router.post("/favoriGames", auth, async (req, res) => {
   try {
     const user = req.user;
     const { gameId, gameName, gameImage, isFavorited } = req.body;
-    if (!gameId || !gameName || !gameImage || !isFavorited) {
+
+    // False gelirse hata almamak için kontrolü düzelttik
+    if (!gameId || !gameName || !gameImage || isFavorited === undefined) {
       return res.status(400).json({ message: "Tüm alanlar zorunludur!" });
     }
+
     if (!user) {
       return res.status(401).json({ message: "Giriş yapmalısınız" });
     }
+
     const existingFavorite = await FavoritedGames.findOne({
       where: { gameId, userId: user.id },
     });
+
     if (existingFavorite) {
-      existingFavorite.isFavorited = isLiked;
-      await existingLike.save();
+      existingFavorite.isFavorited = isFavorited; // Hatalı değişken düzeltildi
+      await existingFavorite.save();
       return res.status(200).json({
         message: "Favori güncellendi",
       });
     }
-    const newFavoritedGame = new favoritedGames({
+
+    const newFavoritedGame = new FavoritedGames({
+      // Model ismi düzeltildi
       gameId,
       gameName,
       gameImage,
       isFavorited,
       userId: user.id,
     });
+
     await newFavoritedGame.save();
     return res.status(200).json({
       message: "Favorilere eklendi",
     });
   } catch (error) {
-    console.error("hata", error);
+    console.error("Hata:", error);
     return res.status(500).json({ message: "Sunucu Hatası", error });
   }
 });

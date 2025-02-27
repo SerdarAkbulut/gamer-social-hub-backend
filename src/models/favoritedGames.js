@@ -6,7 +6,7 @@ const favoritedGames = sequelize.define("favoritedGames", {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  gameNames: {
+  gameName: {
     type: DataTypes.STRING,
     allowNull: false,
   },
