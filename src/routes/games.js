@@ -2,6 +2,8 @@ const { default: axios } = require("axios");
 const { Router } = require("express");
 const dotenv = require("dotenv");
 const { date } = require("joi");
+const likedGames = require("../models/likedGames");
+const auth = require("../middleware/auth");
 
 dotenv.config();
 const router = Router();
@@ -29,18 +31,27 @@ const getOAuthToken = async () => {
     return null;
   }
 };
+const getUserLikedGames = async (userId) => {
+  return await likedGames.findAll({
+    where: {
+      userId: userId,
+    },
+    attributes: ["gameId", "isLiked"],
+  });
+};
 
-const fetchReleaseDates = async (offset = 0) => {
+const fetchReleaseDates = async (offset = 0, userId) => {
   try {
     const accessToken = await getOAuthToken();
     if (!accessToken) {
       throw new Error("Access token alınamadı!");
     }
+
     const currentTime = Math.floor(Date.now() / 1000);
 
     const requestBody = `
-      fields name,  cover.image_id; 
-      sort first_release_date desc ;
+      fields name, cover.image_id, first_release_date;
+      sort first_release_date desc;
       where first_release_date < ${currentTime} 
       & platforms = (6, 48, 167, 9, 49, 169, 12)
       & category = (0)
@@ -69,8 +80,20 @@ const fetchReleaseDates = async (offset = 0) => {
         : "Bilinmiyor",
       cover_url: game.cover
         ? `https://images.igdb.com/igdb/image/upload/t_1080p/${game.cover.image_id}.jpg`
-        : "default-cover.jpg", // Varsayılan kapak resmi
+        : "default-cover.jpg",
     }));
+
+    // Kullanıcının beğendiği oyunları çek
+    const likedGames = userId ? await getUserLikedGames(userId) : [];
+
+    // Beğeni bilgilerini eşle
+    games = games.map((game) => {
+      const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+      return {
+        ...game,
+        isLiked: likedGame ? likedGame.isLiked : null, // Kullanıcı beğenmemişse null bırak
+      };
+    });
 
     return games;
   } catch (error) {
@@ -342,11 +365,12 @@ router.get("/gameThemes", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-router.get("/newestGames", async (req, res) => {
+router.get("/newestGames", auth, async (req, res) => {
   try {
+    const user = req.user;
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * 24;
-    const games = await fetchReleaseDates(offset);
+    const games = await fetchReleaseDates(offset, user.id);
     res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
