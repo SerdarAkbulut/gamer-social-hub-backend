@@ -14,7 +14,9 @@ app.use(express.json());
 require("./src/startup/routers")(app);
 
 const PORT = process.env.PORT || 3000;
-
+sequelize.sync({ force: false }).then(() => {
+  console.log("Veritabanı senkronize edildi!");
+});
 app.listen(PORT, async () => {
   try {
     await sequelize.authenticate(); // Veritabanı bağlantısını doğrula

@@ -5,7 +5,6 @@ const router = Router();
 const auth = require("../middleware/auth");
 const FavoritedGames = require("../models/favoritedGames");
 const { where } = require("sequelize");
-const favoritedGames = require("../models/favoritedGames");
 
 router.post("/favoriGames", auth, async (req, res) => {
   try {
@@ -51,4 +50,38 @@ router.post("/favoriGames", auth, async (req, res) => {
     return res.status(500).json({ message: "Sunucu Hatası", error });
   }
 });
+router.get("/favoritedGames", auth, async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    return res.status(401, "Giriş Yapılmadı");
+  }
+  try {
+    const favoritedGames = await FavoritedGames.findAll({
+      where: { userId: user.id, isFavorited: true },
+    });
+    return res.status(200).json(favoritedGames);
+  } catch (error) {
+    return res.status(400, error);
+  }
+});
+
+router.get("/userFavoritedGames/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  // userId kontrolü
+  if (!userId) {
+    return res.status(400).json({ error: "Kullanıcı bulunamadı" });
+  }
+
+  try {
+    const favoritedGames = await FavoritedGames.findAll({
+      where: { userId: parseInt(userId) }, // userId'yi Integer'a çevir
+    });
+
+    return res.status(200).json(favoritedGames);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 module.exports = router;

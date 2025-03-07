@@ -1,11 +1,12 @@
 const { default: axios } = require("axios");
 const { Router } = require("express");
 const dotenv = require("dotenv");
-const { date } = require("joi");
+const { date, array } = require("joi");
 const likedGames = require("../models/likedGames");
 const auth = require("../middleware/auth");
 const favoritedGames = require("../models/favoritedGames");
-
+const Post = require("../models/postModel");
+const User = require("../models/userModel");
 dotenv.config();
 const router = Router();
 
@@ -40,6 +41,12 @@ const getUserLikedGames = async (userId) => {
     attributes: ["gameId", "isLiked"],
   });
 };
+const getGamePosts = async (gameId) => {
+  return await Post.findAll({
+    where: { gameId: gameId },
+  });
+};
+
 const getUserFavoritedGames = async (userId) => {
   return await favoritedGames.findAll({
     where: {
@@ -122,7 +129,7 @@ const fetchGames = async (offset = 0) => {
 
     const requestBody = `
       fields name,  cover.image_id; 
-      sort first_release_date desc ;
+      sort total_rating_count desc ;
       where first_release_date <= ${currentTime} 
       & platforms = (6, 48, 167, 9, 49, 169, 12)
       & category = (0)
@@ -247,7 +254,7 @@ const upcomingGames = async (offset, userId) => {
 const gameDetails = async (gameId) => {
   const accessToken = await getOAuthToken();
   const requestBody = `
-  fields *;
+  fields name,genres.name,platforms.name,themes.name,screenshots.url;
   where id = ${gameId};
   limit 1;
 `;
@@ -262,7 +269,36 @@ const gameDetails = async (gameId) => {
       },
     }
   );
-  return response.data;
+  const games = await Promise.all(
+    response.data.map(async (game) => {
+      // gameId'yi almak
+      const gameId = game.id; // Oyunla ilgili gameId'yi burada almak gerekebilir
+
+      // gamePosts'u almak
+      const gamePosts = gameId ? await getGamePosts(gameId) : [];
+
+      // Oyunla ilgili verileri işleyip dönüyoruz
+      return {
+        name: game.name,
+        genres: game.genres
+          ? game.genres.map((genre) => genre.name).join(", ")
+          : "",
+        platforms: game.platforms
+          ? game.platforms.map((platform) => platform.name).join(", ")
+          : "",
+        themes: game.themes
+          ? game.themes.map((theme) => theme.name).join(", ")
+          : "",
+        screenshots: Array.isArray(game.screenshots)
+          ? game.screenshots.map((screenshot) => ({
+              url: screenshot.url.replace("/t_thumb/", "/t_1080p/"),
+            }))
+          : [],
+        gamePosts,
+      };
+    })
+  );
+  return games;
 };
 const gameGenres = async () => {
   try {

@@ -4,7 +4,8 @@ const bcrypt = require("bcryptjs");
 const router = Router();
 const auth = require("../middleware/auth");
 const LikedGames = require("../models/likedGames");
-const { where } = require("sequelize");
+const { where, Op } = require("sequelize");
+const likedGames = require("../models/likedGames");
 
 router.post("/gameLike", auth, async (req, res) => {
   try {
@@ -62,7 +63,42 @@ router.post("/gameLike", auth, async (req, res) => {
     return res.status(500).json({ message: "Sunucu hatası", error });
   }
 });
-router.get("/gameLike", auth, async (req, res) => {
+router.get("/likedGames", auth, async (req, res) => {
   const user = req.user;
+  if (!user) {
+    return res.status(401).json({ message: "Giriş Yapılmadı" });
+  }
+  try {
+    const likedGames = await LikedGames.findAll({
+      where: {
+        userId: user.id, // Kullanıcı ID'sini doğru şekilde al
+        isLiked: { [Op.or]: [true, false] },
+      },
+    });
+    return res.status(200).json(likedGames); // JSON formatında veri gönder
+  } catch (error) {
+    return res.status(400).json({ message: error.message }); // Hata mesajını düzgün şekilde gönder
+  }
+});
+
+router.get("/userLikedGames/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    return res.status(400).json({ error: "Kullanıcı bulunamadı" });
+  }
+
+  try {
+    const favoritedGames = await LikedGames.findAll({
+      where: {
+        userId: userId,
+        isLiked: { [Op.or]: [true, false] }, // Hem true hem de false değerleri getir
+      },
+    });
+
+    return res.status(200).json(favoritedGames);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
 });
 module.exports = router;
