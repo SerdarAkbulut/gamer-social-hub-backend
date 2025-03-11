@@ -10,6 +10,10 @@ Post.init(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    gameName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,

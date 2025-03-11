@@ -2,6 +2,8 @@ const { Router } = require("express");
 const Post = require("../models/postModel");
 const auth = require("../middleware/auth");
 const router = Router();
+const FavoritedGames = require("../models/favoritedGames");
+const User = require("../models/userModel");
 
 router.post("/newpost", auth, async (req, res) => {
   try {
@@ -62,4 +64,36 @@ router.post("/gameposts", async (req, res) => {
   }
 });
 
+router.get("/favoritedGamesPost", auth, async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res
+        .status(401)
+        .json({ message: "Giriş yapıp favori oyunlarınızı seçin" });
+    }
+
+    const getFavoritedGames = await FavoritedGames.findAll({
+      where: { userId: user.id },
+      attributes: ["gameId"],
+    });
+
+    const favoritedGameIds = getFavoritedGames.map((game) => game.gameId);
+
+    const getFavoritedGamesPost = await Post.findAll({
+      where: { userId: user.id, gameId: favoritedGameIds },
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["userName"],
+        },
+      ],
+    });
+
+    return res.json(getFavoritedGamesPost);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 module.exports = router;

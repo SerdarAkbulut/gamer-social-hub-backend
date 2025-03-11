@@ -119,7 +119,7 @@ const fetchReleaseDates = async (offset = 0, userId) => {
   }
 };
 
-const fetchGames = async (offset = 0) => {
+const fetchGames = async (offset = 0, userId) => {
   try {
     const accessToken = await getOAuthToken();
     if (!accessToken) {
@@ -156,8 +156,21 @@ const fetchGames = async (offset = 0) => {
 
       cover_url: game.cover
         ? `https://images.igdb.com/igdb/image/upload/t_1080p/${game.cover.image_id}.jpg`
-        : "default-cover.jpg", // Varsayılan kapak resmi
+        : "default-cover.jpg",
     }));
+
+    // Kullanıcının beğendiği oyunları çek
+    const likedGames = userId ? await getUserLikedGames(userId) : [];
+    const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
+    games = games.map((game) => {
+      const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+      const favoritedGame = favoritedGames.find((fv) => fv.gameId === game.id);
+      return {
+        ...game,
+        isLiked: likedGame ? likedGame.isLiked : null,
+        isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
+      };
+    });
 
     return games;
   } catch (error) {
@@ -371,12 +384,13 @@ const gameThemes = async () => {
 };
 
 // API Endpoint'leri
-router.get("/games", async (req, res) => {
+router.get("/games", auth, async (req, res) => {
   try {
+    const user = req.user;
     const page = parseInt(req.query.page) || 1;
 
     const offset = (page - 1) * 24;
-    const games = await fetchGames(offset);
+    const games = await fetchGames(offset, user.id);
     res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
