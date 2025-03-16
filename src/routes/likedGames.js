@@ -5,7 +5,6 @@ const router = Router();
 const auth = require("../middleware/auth");
 const LikedGames = require("../models/likedGames");
 const { where, Op } = require("sequelize");
-const likedGames = require("../models/likedGames");
 
 router.post("/gameLike", auth, async (req, res) => {
   try {

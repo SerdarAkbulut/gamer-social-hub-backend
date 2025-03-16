@@ -44,6 +44,13 @@ const getUserLikedGames = async (userId) => {
 const getGamePosts = async (gameId) => {
   return await Post.findAll({
     where: { gameId: gameId },
+    include: [
+      {
+        model: User,
+        as: "user",
+        attributes: ["userName"],
+      },
+    ],
   });
 };
 

@@ -4,6 +4,7 @@ const auth = require("../middleware/auth");
 const router = Router();
 const FavoritedGames = require("../models/favoritedGames");
 const User = require("../models/userModel");
+const replyPost = require("../models/replyModel");
 
 router.post("/newpost", auth, async (req, res) => {
   try {
@@ -33,13 +34,46 @@ router.post("/newpost", auth, async (req, res) => {
 });
 router.get("/post", async (req, res) => {
   try {
-    const getAllPost = await Post.findAll(); // await burada olmalı
-    return res.json(getAllPost.map((p) => p.toJSON())); // JSON formatında döndür
+    const getAllPost = await Post.findAll({
+      order: [["createdAt", "DESC"]], // createdAt'e göre azalan sıralama
+    });
+
+    return res.json(getAllPost.map((p) => p.toJSON()));
   } catch (error) {
     return res.status(500).json({
       message: "Form bilgileri çekilemedi",
       error: error.message,
     });
+  }
+});
+
+router.get("/post-details/:postId", async (req, res) => {
+  const { postId } = req.params;
+  try {
+    const getPost = await Post.findAll({
+      where: { id: postId },
+      include: [
+        {
+          model: replyPost,
+          as: "replies",
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["userName"],
+            },
+          ],
+        },
+        {
+          model: User,
+          as: "user",
+          attributes: ["userName"],
+        },
+      ],
+    });
+    return res.status(200).json(getPost);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
   }
 });
 router.post("/gameposts", async (req, res) => {
@@ -96,4 +130,5 @@ router.get("/favoritedGamesPost", auth, async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
+
 module.exports = router;

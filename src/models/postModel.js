@@ -1,6 +1,7 @@
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
 const User = require("./userModel");
+const replyPost = require("./replyModel");
 
 class Post extends Model {}
 
@@ -30,7 +31,6 @@ Post.init(
   { sequelize, modelName: "Post" }
 );
 
-// 🟢 Posts -> User ilişkisi
 Post.belongsTo(User, { foreignKey: "userId", as: "user" });
-
+Post.hasMany(replyPost, { foreignKey: "postId", as: "replies" });
 module.exports = Post;
