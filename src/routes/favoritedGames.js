@@ -75,7 +75,13 @@ router.get("/userFavoritedGames/:userId", async (req, res) => {
 
   try {
     const favoritedGames = await FavoritedGames.findAll({
-      where: { userId: parseInt(userId) }, // userId'yi Integer'a çevir
+      where: { userId: userId, isFavorited: true },
+      attributes: [
+        ["gameImage", "cover_url"], // gameImage'i cover_url olarak al
+        ["gameName", "name"],
+        "gameId",
+        "isFavorited",
+      ],
     });
 
     return res.status(200).json(favoritedGames);

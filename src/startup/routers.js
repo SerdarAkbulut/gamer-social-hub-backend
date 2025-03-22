@@ -5,6 +5,7 @@ const cors = require("cors");
 const likedGames = require("../routes/likedGames");
 const favoritedGames = require("../routes/favoritedGames");
 const newPost = require("../routes/postRouter");
+const follow = require("../routes/follow");
 module.exports = function (app) {
   app.use(cors());
   app.use(express.json());
@@ -13,4 +14,5 @@ module.exports = function (app) {
   app.use("/api", likedGames);
   app.use("/api", favoritedGames);
   app.use("/api", newPost);
+  app.use("/api", follow);
 };

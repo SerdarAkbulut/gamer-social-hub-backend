@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
-const User = require("./userModel");
 const favoritedGames = sequelize.define("favoritedGames", {
   gameId: {
     type: DataTypes.INTEGER,
@@ -19,6 +18,5 @@ const favoritedGames = sequelize.define("favoritedGames", {
     allowNull: false,
   },
 });
-favoritedGames.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 module.exports = favoritedGames;

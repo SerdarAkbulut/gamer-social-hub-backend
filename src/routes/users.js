@@ -7,13 +7,11 @@ const jwt = require("jsonwebtoken");
 const router = Router();
 require("dotenv").config();
 router.post("/register", async (req, res) => {
-  // Kullanıcı verilerini doğrulama
   const { error } = validateRegister(req.body);
   if (error) {
     return res.status(400).send(error.details[0].message);
   }
 
-  // Kullanıcı adı ve e-posta kontrolü
   let user = await User.findOne({
     where: {
       [Op.or]: [{ email: req.body.email }, { userName: req.body.userName }],
@@ -76,4 +74,5 @@ router.post("/login", async (req, res) => {
     return res.status(500).send("Sunucu hatası: " + error.message);
   }
 });
+
 module.exports = router;

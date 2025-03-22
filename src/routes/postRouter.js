@@ -6,6 +6,7 @@ const FavoritedGames = require("../models/favoritedGames");
 const User = require("../models/userModel");
 const replyPost = require("../models/replyModel");
 
+// Yeni bir post oluşturur
 router.post("/newpost", auth, async (req, res) => {
   try {
     const user = req.user;
@@ -32,6 +33,7 @@ router.post("/newpost", auth, async (req, res) => {
     return res.status(500).json({ message: "Sunucu Hatası", error });
   }
 });
+// Tüm postları getirir
 router.get("/post", async (req, res) => {
   try {
     const getAllPost = await Post.findAll({
@@ -46,7 +48,7 @@ router.get("/post", async (req, res) => {
     });
   }
 });
-
+// Belirli bir postun detaylarını getirir
 router.get("/post-details/:postId", async (req, res) => {
   const { postId } = req.params;
   try {
@@ -76,6 +78,7 @@ router.get("/post-details/:postId", async (req, res) => {
     return res.status(400).json({ error: error.message });
   }
 });
+// Belirli bir oyuna ait postları getirir
 router.post("/gameposts", async (req, res) => {
   try {
     const gameId = parseInt(req.query.gameId, 10);
@@ -97,7 +100,7 @@ router.post("/gameposts", async (req, res) => {
     });
   }
 });
-
+// Kullanıcının favori oyunlarını getir
 router.get("/favoritedGamesPost", auth, async (req, res) => {
   try {
     const user = req.user;
@@ -131,4 +134,25 @@ router.get("/favoritedGamesPost", auth, async (req, res) => {
   }
 });
 
+// kullanıcının postları
+router.get("/user-posts/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    if (!userId) {
+      return res.status(500).json({ message: "Kullanıcı bulunamadı" });
+    }
+    const getUserPosts = await Post.findAll({
+      where: { userId: userId },
+      attributes: ["gameName", "gameId", "postTitle", "postText", "userId"],
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["userName"],
+        },
+      ],
+    });
+    return res.status(200).json(getUserPosts);
+  } catch (error) {}
+});
 module.exports = router;

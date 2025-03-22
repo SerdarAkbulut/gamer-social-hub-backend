@@ -1,9 +1,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const { User } = require("./src/models/userModel.js");
 const sequelize = require("./src/startup/db.js");
 const app = express();
-
 // .env dosyasını yükle
 dotenv.config();
 
@@ -14,19 +12,26 @@ app.use(express.json());
 require("./src/startup/routers")(app);
 
 const PORT = process.env.PORT || 3000;
-sequelize.sync({ force: false }).then(() => {
-  console.log("Veritabanı senkronize edildi!");
-});
-app.listen(PORT, async () => {
-  try {
-    await sequelize.authenticate(); // Veritabanı bağlantısını doğrula
+
+// Veritabanı bağlantısını doğrula
+sequelize
+  .authenticate()
+  .then(() => {
     console.log("✅ Veritabanı bağlantısı başarılı.");
-
-    await sequelize.sync({ alter: true });
-    console.log("✅ Veritabanı senkronizasyonu tamamlandı!");
-  } catch (error) {
+  })
+  .catch((error) => {
     console.error("❌ Bağlantı hatası:", error);
-  }
+  });
 
-  console.log(`🚀 Sunucu ${PORT} portunda çalışıyor.`);
-});
+// Veritabanı senkronizasyonu ve server başlatma
+sequelize
+  .sync({ alter: true }) // alter:true, schema'yi kontrol eder ve gerekiyorsa değiştirir.
+  .then(() => {
+    console.log("✅ Veritabanı senkronizasyonu tamamlandı!");
+    app.listen(PORT, () => {
+      console.log(`🚀 Sunucu ${PORT} portunda çalışıyor.`);
+    });
+  })
+  .catch((error) => {
+    console.error("❌ Senkronizasyon hatası:", error);
+  });

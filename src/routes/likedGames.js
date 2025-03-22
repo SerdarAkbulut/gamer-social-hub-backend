@@ -5,6 +5,8 @@ const router = Router();
 const auth = require("../middleware/auth");
 const LikedGames = require("../models/likedGames");
 const { where, Op } = require("sequelize");
+const User = require("../models/userModel");
+const favoritedGames = require("../models/favoritedGames");
 
 router.post("/gameLike", auth, async (req, res) => {
   try {
@@ -88,14 +90,39 @@ router.get("/userLikedGames/:userId", async (req, res) => {
   }
 
   try {
-    const favoritedGames = await LikedGames.findAll({
+    // Kullanıcının beğendiği oyunları getir
+    const likedGames = await LikedGames.findAll({
       where: {
         userId: userId,
-        isLiked: { [Op.or]: [true, false] }, // Hem true hem de false değerleri getir
+        isLiked: { [Op.or]: [true, false] },
       },
+      attributes: [
+        ["gameImage", "cover_url"], // gameImage'i cover_url olarak al
+        ["gameName", "name"],
+        "gameId",
+        "isLiked",
+      ],
     });
 
-    return res.status(200).json(favoritedGames);
+    // Favori oyunları getir (Kullanıcıya ait favoritedGames kayıtları)
+    const favoritedGamesList = await favoritedGames.findAll({
+      where: { userId: userId },
+      attributes: ["gameId", "isFavorited"], // Sadece gameId ve isFavorited bilgilerini al
+    });
+
+    // Favori oyunları bir obje olarak map'le (Hızlı erişim için)
+    const favoritedMap = {};
+    favoritedGamesList.forEach((fav) => {
+      favoritedMap[fav.gameId] = fav.isFavorited;
+    });
+
+    // Beğenilen oyunlara isFavorited ekle
+    const enrichedLikedGames = likedGames.map((game) => ({
+      ...game.toJSON(),
+      isFavorited: favoritedMap[game.gameId] || false, // Eğer favoritedMap'te varsa, al; yoksa false yap
+    }));
+
+    return res.status(200).json(enrichedLikedGames);
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }

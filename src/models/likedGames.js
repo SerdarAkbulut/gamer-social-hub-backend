@@ -1,23 +1,35 @@
-const { DataTypes } = require("sequelize");
+const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
 const User = require("./userModel");
-const likedGames = sequelize.define("likedGames", {
-  gameId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
+
+class LikedGames extends Model {}
+
+LikedGames.init(
+  {
+    gameId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    gameName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    gameImage: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    isLiked: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+    },
   },
-  gameName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  gameImage: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  isLiked: {
-    type: DataTypes.BOOLEAN,
-    allowNull: true,
-  },
-});
-likedGames.belongsTo(User, { foreignKey: "userId", as: "user" });
-module.exports = likedGames;
+  {
+    sequelize,
+    modelName: "likedGames",
+  }
+);
+
+// İlişkiyi kuruyoruz
+LikedGames.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+module.exports = LikedGames;

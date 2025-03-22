@@ -1,5 +1,6 @@
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
+const favoritedGames = require("./favoritedGames");
 
 class User extends Model {}
 
@@ -26,5 +27,5 @@ User.init(
   },
   { sequelize, modelName: "Users" }
 );
-
+User.hasMany(favoritedGames, { foreignKey: "userId", as: "favorites" });
 module.exports = User;
