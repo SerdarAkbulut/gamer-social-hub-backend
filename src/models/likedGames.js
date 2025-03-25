@@ -1,6 +1,5 @@
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
-const User = require("./userModel");
 
 class LikedGames extends Model {}
 
@@ -22,6 +21,10 @@ LikedGames.init(
       type: DataTypes.BOOLEAN,
       allowNull: true,
     },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
   },
   {
     sequelize,
@@ -30,6 +33,5 @@ LikedGames.init(
 );
 
 // İlişkiyi kuruyoruz
-LikedGames.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 module.exports = LikedGames;

@@ -17,6 +17,10 @@ const favoritedGames = sequelize.define("favoritedGames", {
     type: DataTypes.BOOLEAN,
     allowNull: false,
   },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
 });
 
 module.exports = favoritedGames;

@@ -1,24 +1,20 @@
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
 
-class replyPost extends Model {}
+class UserPostFeatured extends Model {}
 
-replyPost.init(
+UserPostFeatured.init(
   {
-    postId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-    reply: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    postId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
   },
-  { sequelize, modelName: "replyPost" }
+  { sequelize, modelName: "UserPostFeatured" }
 );
 
-module.exports = replyPost;
+module.exports = UserPostFeatured;

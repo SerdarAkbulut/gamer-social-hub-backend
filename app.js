@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const sequelize = require("./src/startup/db.js");
 const app = express();
+require("./src/models/index.js");
 // .env dosyasını yükle
 dotenv.config();
 

@@ -1,6 +1,6 @@
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
-const User = require("./userModel");
+const { User } = require("./userModel");
 
 class Follow extends Model {}
 

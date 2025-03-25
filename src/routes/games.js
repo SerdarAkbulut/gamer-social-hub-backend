@@ -6,7 +6,7 @@ const likedGames = require("../models/likedGames");
 const auth = require("../middleware/auth");
 const favoritedGames = require("../models/favoritedGames");
 const Post = require("../models/postModel");
-const User = require("../models/userModel");
+const { User } = require("../models/userModel");
 dotenv.config();
 const router = Router();
 

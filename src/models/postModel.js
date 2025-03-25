@@ -1,7 +1,6 @@
 const { Model, DataTypes } = require("sequelize");
 const sequelize = require("../startup/db");
-const User = require("./userModel");
-const replyPost = require("./replyModel");
+const ReplyPost = require("./replyModel");
 
 class Post extends Model {}
 
@@ -31,6 +30,9 @@ Post.init(
   { sequelize, modelName: "Post" }
 );
 
-Post.belongsTo(User, { foreignKey: "userId", as: "user" });
-Post.hasMany(replyPost, { foreignKey: "postId", as: "replies" });
+// İlişki: Post, User modeline bağlıdır
+
+// İlişki: Post, ReplyPost modeline bağlıdır
+Post.hasMany(ReplyPost, { foreignKey: "postId", as: "replies" });
+
 module.exports = Post;
