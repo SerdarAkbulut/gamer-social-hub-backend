@@ -6,6 +6,7 @@ const LikedGames = require("./likedGames");
 const Post = require("./postModel");
 const replyPost = require("./replyModel");
 const UserPostFeatured = require("./UserPostFeatured");
+const Follow = require("./follow");
 
 // önerilen postlar
 User.belongsToMany(Post, {
@@ -33,6 +34,18 @@ Post.belongsTo(User, { foreignKey: "userId", as: "user" });
 // Kullanıcı - replyPost ilişkisi
 User.hasMany(replyPost, { foreignKey: "userId", as: "userReply" });
 replyPost.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+User.belongsToMany(User, {
+  through: Follow,
+  as: "Followers",
+  foreignKey: "followingId",
+});
+
+User.belongsToMany(User, {
+  through: Follow,
+  as: "Following",
+  foreignKey: "followerId",
+});
 
 // Model ve sequelize bağlantısını dışa aktarıyoruz
 module.exports = {

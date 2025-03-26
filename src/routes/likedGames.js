@@ -75,6 +75,12 @@ router.get("/likedGames", auth, async (req, res) => {
         userId: user.id, // Kullanıcı ID'sini doğru şekilde al
         isLiked: { [Op.or]: [true, false] },
       },
+      attributes: [
+        ["gameImage", "cover_url"], // gameImage'i cover_url olarak al
+        ["gameName", "name"],
+        "gameId",
+        "isLiked",
+      ],
     });
     return res.status(200).json(likedGames); // JSON formatında veri gönder
   } catch (error) {

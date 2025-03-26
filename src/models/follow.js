@@ -38,16 +38,4 @@ Follow.init(
   }
 );
 
-User.belongsToMany(User, {
-  through: Follow,
-  as: "Followers",
-  foreignKey: "followingId",
-});
-
-User.belongsToMany(User, {
-  through: Follow,
-  as: "Following",
-  foreignKey: "followerId",
-});
-
 module.exports = Follow;
