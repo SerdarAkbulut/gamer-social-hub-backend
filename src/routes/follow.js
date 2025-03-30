@@ -2,8 +2,8 @@ const express = require("express");
 const { Router } = require("express");
 const router = Router();
 const Follow = require("../models/follow");
-const User = require("../models/userModel");
 const auth = require("../middleware/auth");
+const { User } = require("../models");
 
 router.post("/follow", auth, async (req, res) => {
   const user = req.user;
@@ -28,12 +28,13 @@ router.post("/follow", auth, async (req, res) => {
     });
 
     if (existingFollow) {
-      return res.status(409).send("Bu kullanıcıyı zaten takip ediyorsunuz.");
+      await existingFollow.destroy();
+      return res.status(200).send("Kullanıcı takipten çıkarıldı");
+    } else {
+      // Takip et
+      await Follow.create({ followerId: user.id, followingId });
+      return res.status(200).send("Kullanıcı başarıyla takip edildi.");
     }
-
-    // Takip et
-    await Follow.create({ followerId: user.id, followingId });
-    return res.status(200).send("Kullanıcı başarıyla takip edildi.");
   } catch (error) {
     return res.status(500).send("Sunucu hatası: " + error.message);
   }

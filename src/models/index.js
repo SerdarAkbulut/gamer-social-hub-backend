@@ -35,17 +35,14 @@ Post.belongsTo(User, { foreignKey: "userId", as: "user" });
 User.hasMany(replyPost, { foreignKey: "userId", as: "userReply" });
 replyPost.belongsTo(User, { foreignKey: "userId", as: "user" });
 
-User.belongsToMany(User, {
-  through: Follow,
-  as: "Followers",
-  foreignKey: "followingId",
-});
+Post.hasMany(replyPost, { foreignKey: "postId", as: "replies" });
+replyPost.belongsTo(Post, { foreignKey: "postId", as: "post" });
 
-User.belongsToMany(User, {
-  through: Follow,
-  as: "Following",
-  foreignKey: "followerId",
-});
+User.hasMany(Follow, { foreignKey: "followerId", as: "followers" });
+User.hasMany(Follow, { foreignKey: "followingId", as: "following" });
+
+Follow.belongsTo(User, { foreignKey: "followerId", as: "follower" });
+Follow.belongsTo(User, { foreignKey: "followingId", as: "followed" });
 
 // Model ve sequelize bağlantısını dışa aktarıyoruz
 module.exports = {

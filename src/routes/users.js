@@ -10,8 +10,37 @@ const {
   validateUpdateUser,
 } = require("../models/userModel");
 const auth = require("../middleware/auth");
+const optionalAuth = require("../middleware/optionalAuth ");
+const Follow = require("../models/follow");
+const { default: axios } = require("axios");
+const multer = require("multer");
 const router = Router();
 require("dotenv").config();
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+const FormData = require("form-data");
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+
+const generateResetToken = (userId) => {
+  const resetToken = jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: "1h",
+  }); // 1 saat geçerli
+  return resetToken;
+};
+const generateResetLink = (token) => {
+  return `http://localhost:3002/reset-password?token=${token}`; // Frontend URL'inizi burada kullanın
+};
+const verifyResetToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET); // Token geçerli mi?
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return { error: "Bu bağlantının süresi dolmuş. Lütfen tekrar deneyin." };
+    }
+    return { error: "Geçersiz veya bozuk token." };
+  }
+};
 
 router.post("/register", async (req, res) => {
   const { error } = validateRegister(req.body);
@@ -42,21 +71,37 @@ router.post("/register", async (req, res) => {
   return res.status(200).send("Kayıt İşlemi Başarılı");
 });
 
-router.get("/user", async (req, res) => {
-  // Kullanıcıyı ID ile arayalım (GET isteği olduğu için params ya da query kullanabiliriz)
-  const { id } = req.query; // Burada id'yi query parametresi olarak alıyoruz
+router.get("/user/:id", optionalAuth, async (req, res) => {
+  const { id } = req.params;
+  const loggedInUserId = req.user ? req.user.id : null; // Giriş yapmış kullanıcıyı al
 
   let user = await User.findOne({
     where: {
-      id: id, // Op kullanmaya gerek yok çünkü sadece basit bir eşleşme yapıyoruz
+      id: id,
     },
+    attributes: ["userName", "id", "banner", "profileImage"],
   });
 
   if (!user) {
     return res.status(404).send("Kullanıcı Bulunamadı");
   }
 
-  return res.status(200).json(user); // Kullanıcıyı başarılı bir şekilde bulduysak gönderelim
+  // Eğer giriş yapmış bir kullanıcı varsa, takip ilişkisini kontrol et
+  let isFollowing = false;
+  if (loggedInUserId) {
+    const follow = await Follow.findOne({
+      where: {
+        followerId: loggedInUserId,
+        followingId: id,
+      },
+    });
+    isFollowing = follow ? true : false;
+  }
+
+  return res.status(200).json({
+    user,
+    isFollowing, // Takip durumu ekleniyor
+  });
 });
 router.post("/login", async (req, res) => {
   try {
@@ -132,55 +177,140 @@ router.put("/user", auth, async (req, res) => {
   }
 });
 
-router.post("/password-reset", async (req, res) => {
+router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
-  let user = await User.findOne({
-    where: { email: email },
-  });
+  let user = await User.findOne({ where: { email: email } });
 
   if (!user) {
     return res.status(404).send({ message: "Girilen email kaydı bulunamadı" });
-  } else {
-    try {
-      // Nodemailer transporter ayarları
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAILJS_USER, // Gmail adresi
-          pass: process.env.EMAILJS_PASSWORD, // Uygulama şifresi
-        },
-      });
+  }
 
-      // Mail gönderme ayarları
-      const mailOptions = {
-        from: process.env.EMAILJS_USER, // Gönderen e-posta adresi
-        to: email, // Alıcı e-posta adresi
-        subject: "Şifre Sıfırlama",
-        text: "Şifrenizi sıfırlamak için bu bağlantıya tıklayın.",
-        html: "<b>Şifrenizi sıfırlamak için bu bağlantıya tıklayın.</b>", // HTML içeriği (isteğe bağlı)
-      };
+  try {
+    // Şifre sıfırlama token'ını oluştur
+    const resetToken = generateResetToken(user.id);
 
-      // Mail gönderme işlemi
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.log("Mail gönderilirken hata oluştu:", error);
-          return res
-            .status(500)
-            .send({ message: "E-posta gönderilirken bir hata oluştu." });
-        }
-        console.log("Mail başarıyla gönderildi:", info.response);
+    // Şifre sıfırlama linkini oluştur
+    const resetLink = generateResetLink(resetToken);
+
+    // Nodemailer transporter ayarları
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAILJS_USER,
+        pass: process.env.EMAILJS_PASSWORD,
+      },
+    });
+
+    // Mail gönderme ayarları
+    const mailOptions = {
+      from: process.env.EMAILJS_USER,
+      to: email,
+      subject: "Şifre Sıfırlama",
+      text: `Şifrenizi sıfırlamak için şu bağlantıya tıklayın: ${resetLink}`,
+      html: `<b>Şifrenizi sıfırlamak için şu bağlantıya tıklayın:</b> <a href="${resetLink}">${resetLink}</a>`,
+    };
+
+    // Mail gönderme işlemi
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
         return res
-          .status(200)
-          .send({ message: "Şifre sıfırlama kodu mail adresinize gönderildi" });
-      });
-    } catch (error) {
-      console.log("Hata oluştu:", error);
+          .status(500)
+          .send({ message: "E-posta gönderilirken bir hata oluştu." });
+      }
+
       return res
-        .status(500)
-        .send({ message: "E-posta gönderilirken bir hata oluştu." });
-    }
+        .status(200)
+        .send({ message: "Şifre sıfırlama linki mail adresinize gönderildi" });
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .send({ message: "E-posta gönderilirken bir hata oluştu." });
   }
 });
 
+router.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  const decoded = verifyResetToken(token);
+
+  if (decoded.error) {
+    return res.status(400).json({ message: decoded.error });
+  }
+
+  // Token geçerliyse kullanıcıyı bul ve şifresini güncelle
+  const user = await User.findOne({ where: { id: decoded.userId } });
+
+  if (!user) {
+    return res.status(404).json({ message: "Kullanıcı bulunamadı." });
+  }
+
+  // Yeni şifreyi hashleyerek güncelle
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  user.password = hashedPassword;
+  await user.save();
+
+  res.status(200).json({ message: "Şifreniz başarıyla güncellendi!" });
+});
+
+router.get("/check-reset-password-token/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    res.status(200).json({ valid: true, userId: decoded.userId });
+  } catch (error) {
+    res.status(400).json({
+      valid: false,
+      message:
+        "Bağlantı linkinin süresi dolmuş yeniden bağlantı linki isteyin   ",
+    });
+  }
+});
+
+// R2 ayarlarını yapılandırın
+const s3Client = new S3Client({
+  region: "auto", // R2 bölgesi
+  endpoint:
+    "https://6fb8199f7e77311de57e242a70bc8da9.r2.cloudflarestorage.com/user-banner", // R2 endpoint
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID, // R2 Access Key ID
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY, // R2 Secret Access Key
+  },
+});
+
+router.post("/upload-image", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Lütfen bir resim yükleyin" });
+    }
+
+    // R2'ye yükleme işlemi
+    const bucketName = "<user-banner>"; // R2 bucket adı
+    const fileName = uuidv4();
+    const fileBuffer = req.file.buffer; // Dosya verisi
+
+    // PutObjectCommand ile dosyayı yükleyin
+    const uploadParams = {
+      Bucket: bucketName,
+      Key: fileName,
+      Body: fileBuffer,
+      ContentType: req.file.mimetype,
+    };
+
+    const command = new PutObjectCommand(uploadParams);
+
+    const uploadResponse = await s3Client.send(command);
+
+    // Yükleme başarılı ise URL'yi döndür
+    const fileUrl = `https://${bucketName}.r2.cloudflarestorage.com/${fileName}`;
+    return res.status(200).json({ imageUrl: fileUrl });
+  } catch (error) {
+    console.error("Resim yükleme hatası:", error.message || error);
+    return res
+      .status(500)
+      .json({ message: "Resim yükleme başarısız", error: error.message });
+  }
+});
 module.exports = router;

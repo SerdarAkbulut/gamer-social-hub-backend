@@ -30,9 +30,4 @@ Post.init(
   { sequelize, modelName: "Post" }
 );
 
-// İlişki: Post, User modeline bağlıdır
-
-// İlişki: Post, ReplyPost modeline bağlıdır
-Post.hasMany(ReplyPost, { foreignKey: "postId", as: "replies" });
-
 module.exports = Post;

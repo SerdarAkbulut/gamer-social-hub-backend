@@ -3,10 +3,10 @@ const Post = require("../models/postModel");
 const auth = require("../middleware/auth");
 const router = Router();
 const FavoritedGames = require("../models/favoritedGames");
-const replyPost = require("../models/replyModel");
 const { User } = require("../models/userModel");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 const UserPostFeatured = require("../models/UserPostFeatured");
+const replyPost = require("../models/replyModel");
 
 // Yeni bir post oluşturur
 router.post("/newpost", auth, async (req, res) => {
@@ -60,7 +60,22 @@ router.get("/post", async (req, res) => {
 // Belirli bir postun detaylarını getirir
 router.get("/post-details/:postId", async (req, res) => {
   const { postId } = req.params;
+  const { offset = 0 } = req.query; // offset'i query parametre olarak alıyoruz
+  const limit = 10; // Sayfa başına gösterilecek veri sayısı
+
   try {
+    // Toplam replyPost sayısını alıyoruz
+    const totalReplies = await replyPost.count({
+      where: { postId },
+    });
+
+    // Toplam sayfa sayısını hesaplıyoruz
+    const totalPages = Math.ceil(totalReplies / limit);
+
+    // Şu anki sayfayı hesaplıyoruz
+    const currentPage = Math.floor(offset / limit) + 1;
+
+    // Veritabanından postu ve ilgili replyPost'ları çekiyoruz
     const getPost = await Post.findAll({
       where: { id: postId },
       include: [
@@ -74,6 +89,8 @@ router.get("/post-details/:postId", async (req, res) => {
               attributes: ["userName"],
             },
           ],
+          limit: limit,
+          offset: parseInt(offset, 10) || 0,
         },
         {
           model: User,
@@ -82,7 +99,20 @@ router.get("/post-details/:postId", async (req, res) => {
         },
       ],
     });
-    return res.status(200).json(getPost);
+
+    // Son sayfada olunduğunu kontrol ediyoruz
+    const isLastPage = currentPage === totalPages;
+
+    // Yanıtı dönerken sayfa bilgilerini de ekliyoruz
+    return res.status(200).json({
+      postDetails: getPost,
+      pagination: {
+        currentPage,
+        totalPages,
+        isLastPage,
+        totalReplies,
+      },
+    });
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
@@ -155,8 +185,9 @@ router.get("/favoritedGamesPost", auth, async (req, res) => {
 });
 
 // kullanıcının postları
-router.get("/user-posts/:userId", async (req, res) => {
+router.get("/user-posts/:userId", auth, async (req, res) => {
   const { userId } = req.params;
+  const user = req.body;
   try {
     if (!userId) {
       return res.status(500).json({ message: "Kullanıcı bulunamadı" });
@@ -195,7 +226,7 @@ router.post("/add-reply", auth, async (req, res) => {
     }
 
     // Eğer replyPost bir Mongoose modeli ise, aşağıdaki gibi kullanılmalıdır
-    const newReply = new ReplyModel({
+    const newReply = new replyPost({
       postId,
       userId: user.id,
       reply,
@@ -212,6 +243,7 @@ router.post("/add-reply", auth, async (req, res) => {
   }
 });
 
+//öne çıkarma
 router.post("/feature-post", auth, async (req, res) => {
   const userId = req.user.id; // Varsayılan olarak giriş yapan kullanıcının ID'sini alıyoruz
   const { postId } = req.body;
@@ -247,4 +279,46 @@ router.post("/feature-post", auth, async (req, res) => {
     res.status(500).send({ message: "Sunucu hatası!", error });
   }
 });
+// öne çıkanları getirme
+router.get("/feature-post", async (req, res) => {
+  try {
+    // En fazla tekrarlanan postId'ler
+    const featuredPosts = await UserPostFeatured.findAll({
+      attributes: [
+        "postId", // postId'yi seçiyoruz
+        [Sequelize.fn("COUNT", Sequelize.col("postId")), "postCount"], // Her postId'nin kaç kez tekrarlandığını sayıyoruz
+      ],
+      group: ["postId"], // postId'ye göre grupla
+      order: [[Sequelize.fn("COUNT", Sequelize.col("postId")), "DESC"]], // En çok tekrarlanan postId'yi önce getir
+    });
+
+    // featuredPosts ile ilişkili her postId için Post modelinden veriyi alalım
+    const postDetails = await Promise.all(
+      featuredPosts.map(async (featuredPost) => {
+        const postId = featuredPost.postId;
+        const post = await Post.findOne({
+          where: { id: postId },
+          include: [
+            {
+              model: User,
+              as: "user",
+              attributes: ["userName"],
+            },
+          ],
+        });
+
+        return {
+          postId,
+          postCount: featuredPost.dataValues.postCount,
+          postDetails: post,
+        };
+      })
+    );
+
+    return res.status(200).json(postDetails);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+});
+
 module.exports = router;

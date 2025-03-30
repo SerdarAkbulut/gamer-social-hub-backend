@@ -39,10 +39,6 @@ User.init(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    profileImage: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
   },
   { sequelize, modelName: "Users" } // Model adı tekil olmalı
 );

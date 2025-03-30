@@ -7,6 +7,7 @@ const auth = require("../middleware/auth");
 const favoritedGames = require("../models/favoritedGames");
 const Post = require("../models/postModel");
 const { User } = require("../models/userModel");
+const optionalAuth = require("../middleware/optionalAuth ");
 dotenv.config();
 const router = Router();
 
@@ -63,7 +64,7 @@ const getUserFavoritedGames = async (userId) => {
   });
 };
 
-const fetchReleaseDates = async (offset = 0, userId) => {
+const fetchReleaseDates = async (offset = 0, userId = null) => {
   try {
     const accessToken = await getOAuthToken();
     if (!accessToken) {
@@ -106,18 +107,22 @@ const fetchReleaseDates = async (offset = 0, userId) => {
         : "default-cover.jpg",
     }));
 
-    // Kullanıcının beğendiği oyunları çek
-    const likedGames = userId ? await getUserLikedGames(userId) : [];
-    const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
-    games = games.map((game) => {
-      const likedGame = likedGames.find((lg) => lg.gameId === game.id);
-      const favoritedGame = favoritedGames.find((fv) => fv.gameId === game.id);
-      return {
-        ...game,
-        isLiked: likedGame ? likedGame.isLiked : null,
-        isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
-      };
-    });
+    // Eğer kullanıcı giriş yapmışsa, onun beğendiği ve favori oyunlarını ekle
+    if (userId) {
+      const likedGames = await getUserLikedGames(userId);
+      const favoritedGames = await getUserFavoritedGames(userId);
+      games = games.map((game) => {
+        const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+        const favoritedGame = favoritedGames.find(
+          (fv) => fv.gameId === game.id
+        );
+        return {
+          ...game,
+          isLiked: likedGame ? likedGame.isLiked : null,
+          isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
+        };
+      });
+    }
 
     return games;
   } catch (error) {
@@ -126,7 +131,7 @@ const fetchReleaseDates = async (offset = 0, userId) => {
   }
 };
 
-const fetchGames = async (offset = 0, userId) => {
+const fetchGames = async (offset = 0, userId = null) => {
   try {
     const accessToken = await getOAuthToken();
     if (!accessToken) {
@@ -160,24 +165,27 @@ const fetchGames = async (offset = 0, userId) => {
 
     let games = response.data.map((game) => ({
       ...game,
-
       cover_url: game.cover
         ? `https://images.igdb.com/igdb/image/upload/t_1080p/${game.cover.image_id}.jpg`
         : "default-cover.jpg",
     }));
 
-    // Kullanıcının beğendiği oyunları çek
-    const likedGames = userId ? await getUserLikedGames(userId) : [];
-    const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
-    games = games.map((game) => {
-      const likedGame = likedGames.find((lg) => lg.gameId === game.id);
-      const favoritedGame = favoritedGames.find((fv) => fv.gameId === game.id);
-      return {
-        ...game,
-        isLiked: likedGame ? likedGame.isLiked : null,
-        isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
-      };
-    });
+    // Eğer kullanıcı giriş yapmışsa, onun beğendiği ve favori oyunlarını ekle
+    if (userId) {
+      const likedGames = await getUserLikedGames(userId);
+      const favoritedGames = await getUserFavoritedGames(userId);
+      games = games.map((game) => {
+        const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+        const favoritedGame = favoritedGames.find(
+          (fv) => fv.gameId === game.id
+        );
+        return {
+          ...game,
+          isLiked: likedGame ? likedGame.isLiked : null,
+          isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
+        };
+      });
+    }
 
     return games;
   } catch (error) {
@@ -223,52 +231,63 @@ const searchGames = async (search, offset) => {
     return [];
   }
 };
-const upcomingGames = async (offset, userId) => {
+const upcomingGames = async (offset = 0, userId = null) => {
   try {
-    const access_token = await getOAuthToken();
+    const accessToken = await getOAuthToken();
     const currentTime = Math.floor(Date.now() / 1000);
+
     const requestBody = `
-    fields name, cover.image_id;
-    sort first_release_date asc;
-    where first_release_date >${currentTime}
-    &platforms=(6,48,167,9,49,169,12)
-    & category=0
-    &version_parent=null
-    & themes !=42;
-    limit24;
-    offset${offset};
+      fields name, cover.image_id;
+      sort first_release_date asc;
+      where first_release_date > ${currentTime}
+      & platforms = (6, 48, 167, 9, 49, 169, 12)
+      & category = 0
+      & version_parent = null
+      & themes != 42;
+      limit 24;
+      offset ${offset};
     `;
+
     const response = await axios.post(
       "https://api.igdb.com/v4/games",
       requestBody,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           "Client-ID": process.env.CLIENT_ID,
           Accept: "application/json",
         },
       }
     );
+
     let games = response.data.map((game) => ({
       ...game,
       cover_url: game.cover
         ? `https://images.igdb.com/igdb/image/upload/t_1080p/${game.cover.image_id}.jpg`
         : "default-cover.jpg",
     }));
-    const likedGames = userId ? await getUserLikedGames(userId) : [];
-    const favoritedGames = userId ? await getUserFavoritedGames(userId) : [];
-    games = games.map((game) => {
-      const likedGame = likedGames.find((lg) => lg.gameId === game.id);
-      const favoritedGame = favoritedGames.find((fv) => fv.gameId === game.id);
-      return {
-        ...game,
-        isLiked: likedGame ? likedGame.isLiked : null,
-        isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
-      };
-    });
+
+    // Eğer kullanıcı giriş yapmışsa, onun beğendiği ve favori oyunlarını ekle
+    if (userId) {
+      const likedGames = await getUserLikedGames(userId);
+      const favoritedGames = await getUserFavoritedGames(userId);
+      games = games.map((game) => {
+        const likedGame = likedGames.find((lg) => lg.gameId === game.id);
+        const favoritedGame = favoritedGames.find(
+          (fv) => fv.gameId === game.id
+        );
+        return {
+          ...game,
+          isLiked: likedGame ? likedGame.isLiked : null,
+          isFavorited: favoritedGame ? favoritedGame.isFavorited : false,
+        };
+      });
+    }
+
     return games;
   } catch (error) {
     console.error("Error:", error.message);
+    return [];
   }
 };
 const gameDetails = async (gameId) => {
@@ -391,13 +410,13 @@ const gameThemes = async () => {
 };
 
 // API Endpoint'leri
-router.get("/games", auth, async (req, res) => {
+router.get("/games", optionalAuth, async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.user; // Kullanıcı bilgisi (eğer varsa)
     const page = parseInt(req.query.page) || 1;
 
     const offset = (page - 1) * 24;
-    const games = await fetchGames(offset, user.id);
+    const games = await fetchGames(offset, user ? user.id : null); // Eğer user varsa id'yi geçiyoruz, yoksa null
     res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -443,25 +462,27 @@ router.get("/gameThemes", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-router.get("/newestGames", auth, async (req, res) => {
+router.get("/newestGames", optionalAuth, async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.user; // Kullanıcı bilgisi (eğer varsa)
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * 24;
-    const games = await fetchReleaseDates(offset, user.id);
+    const games = await fetchReleaseDates(offset, user ? user.id : null); // Eğer user varsa id'yi geçiyoruz, yoksa null
     res.json(games);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-router.get("/upcomingGames", auth, async (req, res) => {
+router.get("/upcomingGames", optionalAuth, async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.user; // Kullanıcı bilgisi (eğer varsa)
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * 24;
-    const games = await upcomingGames(offset, user.id);
+    const games = await upcomingGames(offset, user ? user.id : null); // Eğer user varsa id'yi geçiyoruz, yoksa null
     res.json(games);
-  } catch (error) {}
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
 });
-
 module.exports = router;
