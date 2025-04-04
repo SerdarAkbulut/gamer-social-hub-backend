@@ -12,14 +12,13 @@ const {
 const auth = require("../middleware/auth");
 const optionalAuth = require("../middleware/optionalAuth ");
 const Follow = require("../models/follow");
-const { default: axios } = require("axios");
 const multer = require("multer");
 const router = Router();
+const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-const FormData = require("form-data");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 
 const generateResetToken = (userId) => {
@@ -79,7 +78,7 @@ router.get("/user/:id", optionalAuth, async (req, res) => {
     where: {
       id: id,
     },
-    attributes: ["userName", "id", "banner", "profileImage"],
+    attributes: ["userName", "id", "banner"],
   });
 
   if (!user) {
@@ -280,37 +279,41 @@ const s3Client = new S3Client({
   },
 });
 
-router.post("/upload-image", upload.single("file"), async (req, res) => {
+router.post("/upload-image", auth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "Lütfen bir resim yükleyin" });
     }
 
-    // R2'ye yükleme işlemi
-    const bucketName = "<user-banner>"; // R2 bucket adı
-    const fileName = uuidv4();
-    const fileBuffer = req.file.buffer; // Dosya verisi
+    const bucketName = "user-banner"; // Gerçek bucket adınızı yazın
+    const fileName = `${uuidv4()}.${req.file.mimetype.split("/")[1]}`;
+    const fileBuffer = req.file.buffer;
 
-    // PutObjectCommand ile dosyayı yükleyin
     const uploadParams = {
       Bucket: bucketName,
       Key: fileName,
       Body: fileBuffer,
-      ContentType: req.file.mimetype,
+      ContentType: req.file.mimetype || "image/jpeg",
     };
 
     const command = new PutObjectCommand(uploadParams);
+    await s3Client.send(command);
 
-    const uploadResponse = await s3Client.send(command);
-
-    // Yükleme başarılı ise URL'yi döndür
     const fileUrl = `https://${bucketName}.r2.cloudflarestorage.com/${fileName}`;
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Kullanıcı doğrulanamadı" });
+    }
+
+    await User.update({ banner: fileUrl }, { where: { id: req.user.id } });
+
     return res.status(200).json({ imageUrl: fileUrl });
   } catch (error) {
-    console.error("Resim yükleme hatası:", error.message || error);
+    console.error("Resim yükleme hatası:", error);
     return res
       .status(500)
       .json({ message: "Resim yükleme başarısız", error: error.message });
   }
 });
+
 module.exports = router;

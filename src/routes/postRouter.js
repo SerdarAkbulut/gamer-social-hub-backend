@@ -7,6 +7,8 @@ const { User } = require("../models/userModel");
 const { Op, Sequelize } = require("sequelize");
 const UserPostFeatured = require("../models/UserPostFeatured");
 const replyPost = require("../models/replyModel");
+const SavedPost = require("../models/savedPost");
+const optionalAuth = require("../middleware/optionalAuth ");
 
 // Yeni bir post oluşturur
 router.post("/newpost", auth, async (req, res) => {
@@ -58,25 +60,29 @@ router.get("/post", async (req, res) => {
   }
 });
 // Belirli bir postun detaylarını getirir
-router.get("/post-details/:postId", async (req, res) => {
+router.get("/post-details/:postId", optionalAuth, async (req, res) => {
   const { postId } = req.params;
-  const { offset = 0 } = req.query; // offset'i query parametre olarak alıyoruz
-  const limit = 10; // Sayfa başına gösterilecek veri sayısı
+  const { offset = 0 } = req.query;
+  const limit = 10;
+  const userId = req.user?.id || null; // Kullanıcı yoksa null ata
 
   try {
-    // Toplam replyPost sayısını alıyoruz
     const totalReplies = await replyPost.count({
       where: { postId },
     });
 
-    // Toplam sayfa sayısını hesaplıyoruz
     const totalPages = Math.ceil(totalReplies / limit);
-
-    // Şu anki sayfayı hesaplıyoruz
     const currentPage = Math.floor(offset / limit) + 1;
 
-    // Veritabanından postu ve ilgili replyPost'ları çekiyoruz
-    const getPost = await Post.findAll({
+    let isSaved = false;
+
+    // Kullanıcı giriş yapmışsa isSaved değerini kontrol et
+    if (userId) {
+      const savedPost = await SavedPost.findOne({ where: { postId, userId } });
+      isSaved = !!savedPost;
+    }
+
+    const getPost = await Post.findOne({
       where: { id: postId },
       include: [
         {
@@ -100,12 +106,14 @@ router.get("/post-details/:postId", async (req, res) => {
       ],
     });
 
-    // Son sayfada olunduğunu kontrol ediyoruz
+    if (!getPost) {
+      return res.status(404).json({ message: "Gönderi bulunamadı" });
+    }
+
     const isLastPage = currentPage === totalPages;
 
-    // Yanıtı dönerken sayfa bilgilerini de ekliyoruz
     return res.status(200).json({
-      postDetails: getPost,
+      postDetails: [{ ...getPost.get({ plain: true }), isSaved }],
       pagination: {
         currentPage,
         totalPages,
@@ -114,7 +122,8 @@ router.get("/post-details/:postId", async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    console.error(error);
+    return res.status(500).json({ error: error.message });
   }
 });
 // Belirli bir oyuna ait postları getirir
@@ -184,10 +193,10 @@ router.get("/favoritedGamesPost", auth, async (req, res) => {
   }
 });
 
-// kullanıcının postları
-router.get("/user-posts/:userId", auth, async (req, res) => {
+// diğer kullanıcıların postlarını getirir
+router.get("/user-posts/:userId", async (req, res) => {
   const { userId } = req.params;
-  const user = req.body;
+
   try {
     if (!userId) {
       return res.status(500).json({ message: "Kullanıcı bulunamadı" });
@@ -204,9 +213,126 @@ router.get("/user-posts/:userId", auth, async (req, res) => {
       ],
     });
     return res.status(200).json(getUserPosts);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+//kendi postlarını getirir
+router.get("/my-posts", auth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    if (!userId) {
+      return res.status(500).json({ message: "Kullanıcı bulunamadı" });
+    }
+    const getUserPosts = await Post.findAll({
+      where: { userId: userId },
+      attributes: [
+        "gameName",
+        "gameId",
+        "postTitle",
+        "postText",
+        "userId",
+        "id",
+      ],
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["userName"],
+        },
+      ],
+    });
+    return res.status(200).json(getUserPosts);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete("/delete-post/:postId", auth, async (req, res) => {
+  const { postId } = req.params;
+  try {
+    if (!postId) {
+      return res.status(400).json({ message: "Post ID sağlanmadı" });
+    }
+    await Post.destroy({
+      where: { id: postId },
+    });
+    return res.status(200).json({ message: "Post silindi" });
   } catch (error) {}
 });
 
+router.post("/save-post", auth, async (req, res) => {
+  try {
+    const { postId } = req.body;
+    const userId = req.user.id;
+
+    // Gönderi mevcut mu?
+    const userPost = await Post.findOne({ where: { id: postId } });
+
+    if (!userPost) {
+      return res.status(404).send("Gönderi bulunamadı");
+    }
+
+    // Kullanıcı kendi gönderisini kaydetmeye çalışıyor mu?
+    if (userPost.userId === userId) {
+      return res.status(409).send("Bu gönderi size ait, kaydedemezsiniz.");
+    }
+
+    // Kullanıcı zaten kaydetmiş mi?
+    const existingSavedPost = await SavedPost.findOne({
+      where: { postId, userId },
+    });
+
+    if (existingSavedPost) {
+      await existingSavedPost.destroy();
+      return res.status(200).json({ message: "Gönderi kaydı silindi" });
+    } else {
+      // Gönderiyi kaydet
+      await SavedPost.create({ postId, userId });
+
+      return res.status(200).json({
+        message: "Gönderi başarıyla kaydedildi",
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send("Sunucu hatası");
+  }
+});
+// kullanıcının kaydettiği postları getirir
+router.get("/get-saved-posts", auth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const savedPosts = await SavedPost.findAll({
+      where: { userId },
+      include: [
+        {
+          model: Post,
+          as: "savedPost", // ✅ `index.js` ile aynı!
+          attributes: ["gameName", "gameId", "postTitle", "postText", "userId"],
+          include: [
+            {
+              model: User,
+              as: "user", // ✅ `Post.belongsTo(User, { as: "user" })` ile eşleşti
+              attributes: ["userName"],
+              required: false, // İlişkili user yoksa hata vermesin
+            },
+          ],
+        },
+      ],
+      raw: true,
+      nest: true,
+    });
+
+    if (!savedPosts.length) {
+      return res.status(404).json({ message: "Kaydedilmiş gönderi yok" });
+    }
+    return res.status(200).json(savedPosts);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 // yorum ekle
 router.post("/add-reply", auth, async (req, res) => {
   try {
