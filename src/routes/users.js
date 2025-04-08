@@ -12,14 +12,15 @@ const {
 const auth = require("../middleware/auth");
 const optionalAuth = require("../middleware/optionalAuth ");
 const Follow = require("../models/follow");
+const { default: axios } = require("axios");
 const multer = require("multer");
 const router = Router();
 const { v4: uuidv4 } = require("uuid");
 require("dotenv").config();
+const cloudinary = require("cloudinary").v2;
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const upload = multer({ storage: multer.memoryStorage() });
+const FormData = require("form-data");
 
 const generateResetToken = (userId) => {
   const resetToken = jwt.sign({ userId }, process.env.JWT_SECRET, {
@@ -268,15 +269,10 @@ router.get("/check-reset-password-token/:token", async (req, res) => {
   }
 });
 
-// R2 ayarlarını yapılandırın
-const s3Client = new S3Client({
-  region: "auto", // R2 bölgesi
-  endpoint:
-    "https://6fb8199f7e77311de57e242a70bc8da9.r2.cloudflarestorage.com/user-banner", // R2 endpoint
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID, // R2 Access Key ID
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY, // R2 Secret Access Key
-  },
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 router.post("/upload-image", auth, upload.single("file"), async (req, res) => {
@@ -285,35 +281,31 @@ router.post("/upload-image", auth, upload.single("file"), async (req, res) => {
       return res.status(400).json({ message: "Lütfen bir resim yükleyin" });
     }
 
-    const bucketName = "user-banner"; // Gerçek bucket adınızı yazın
-    const fileName = `${uuidv4()}.${req.file.mimetype.split("/")[1]}`;
-    const fileBuffer = req.file.buffer;
+    // Buffer'dan base64 formatına çevir
+    const base64Data = `data:${
+      req.file.mimetype
+    };base64,${req.file.buffer.toString("base64")}`;
 
-    const uploadParams = {
-      Bucket: bucketName,
-      Key: fileName,
-      Body: fileBuffer,
-      ContentType: req.file.mimetype || "image/jpeg",
-    };
+    // Cloudinary'e yükle
+    const result = await cloudinary.uploader.upload(base64Data, {
+      folder: "user_banners", // Cloudinary'de klasör ismi
+    });
 
-    const command = new PutObjectCommand(uploadParams);
-    await s3Client.send(command);
+    // Cloudinary'den gelen URL
+    const fileUrl = result.secure_url;
 
-    const fileUrl = `https://${bucketName}.r2.cloudflarestorage.com/${fileName}`;
-
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ message: "Kullanıcı doğrulanamadı" });
-    }
-
+    // Veritabanında kullanıcının banner alanını güncelle
     await User.update({ banner: fileUrl }, { where: { id: req.user.id } });
 
     return res.status(200).json({ imageUrl: fileUrl });
   } catch (error) {
-    console.error("Resim yükleme hatası:", error);
+    console.error(
+      "Cloudinary yükleme hatası:",
+      error.response?.data || error.message
+    );
     return res
       .status(500)
       .json({ message: "Resim yükleme başarısız", error: error.message });
   }
 });
-
 module.exports = router;
