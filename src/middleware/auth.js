@@ -1,12 +1,12 @@
 const jwt = require("jsonwebtoken");
 
 const auth = (req, res, next) => {
-  const authHeader = req.header("Authorization"); // Authorization header'ı al
+  const authHeader = req.header("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "Yetkiniz yok, token gerekli" });
   }
 
-  const token = authHeader.split(" ")[1]; // "Bearer tokenDeğeri" formatını ayır
+  const token = authHeader.split(" ")[1];
   try {
     const decodedToken = jwt.verify(token, process.env.JWT_PRIVATE_KEY);
     req.user = decodedToken;

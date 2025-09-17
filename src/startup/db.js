@@ -3,15 +3,21 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME, // .env'den veritabanı adı
-  process.env.DB_USER, // .env'den kullanıcı adı
-  process.env.DB_PASSWORD, // .env'den şifre
-  {
-    host: process.env.DB_HOST || "localhost",
-    dialect: "postgres", // PostgreSQL kullanıyorsanız
-    logging: false,
-  }
-);
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: "postgres",
+  logging: false,
+  dialectOptions: {
+    ssl: {
+      require: false,
+      rejectUnauthorized: false, // Pooler için gerekli
+    },
+  },
+  pool: {
+    max: 10,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+});
 
 module.exports = sequelize;

@@ -98,6 +98,5 @@ function validateUpdateUser(user) {
 
   return schema.validate(user);
 }
-// Kullanıcının favori oyunlarıyla ilişkisi
 
 module.exports = { User, validateRegister, validateUpdateUser };
