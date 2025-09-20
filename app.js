@@ -16,17 +16,13 @@ sequelize
   .then(() => console.log("✅ Veritabanı bağlantısı başarılı."))
   .catch((err) => console.error("❌ Bağlantı hatası:", err));
 
-sequelize
-  .sync({ alter: true })
-  .then(() => console.log("✅ Veritabanı senkronizasyonu tamamlandı!"))
-  .catch((err) => console.error("❌ Senkronizasyon hatası:", err));
+module.exports = app;
 
-// Local için: app.listen
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Sunucu ${PORT} portunda çalışıyor.`);
-  });
+  app.listen(PORT, () =>
+    console.log(`🚀 Local sunucu ${PORT} portunda çalışıyor`)
+  );
 }
 
 module.exports = serverless(app);
