@@ -29,5 +29,4 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
-module.exports = app;
-module.exports.handler = serverless(app);
+module.exports = serverless(app);

@@ -8,12 +8,12 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
   logging: false,
   dialectOptions: {
     ssl: {
-      require: false,
-      rejectUnauthorized: false, // Pooler için gerekli
+      require: true,
+      rejectUnauthorized: false,
     },
   },
   pool: {
-    max: 10,
+    max: 2,
     min: 0,
     acquire: 30000,
     idle: 10000,
